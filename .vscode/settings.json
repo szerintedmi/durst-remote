@@ -1,0 +1,17 @@
+{
+    // Hide from Explorer + exclude from global text search
+    "search.exclude": {
+        "**/.history": true
+    },
+    // Don’t even watch it (saves CPU)
+    "files.watcherExclude": {
+        "**/.history/**": true
+    },
+    // Language-specific analyzers
+    "C_Cpp.files.exclude": {
+        "**/.history/**": true
+    }, // MS C/C++ extension
+    "python.analysis.exclude": [
+        "**/.history/**"
+    ] // Pylance
+}
