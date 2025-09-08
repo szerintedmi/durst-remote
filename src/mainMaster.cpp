@@ -9,6 +9,7 @@
 
 #include "SimpleTimer.h"
 #include "WifiPortal.h"
+#include "EspNowMesh.h"
 #include "TM1638plusWrapper.h"
 #include "DisplayMux.h"
 #include "DRV8874.h"
@@ -155,6 +156,8 @@ void setup()
 
   attachRoutes();
   wifiPortal.beginAndConnect(webServer, /*staTimeoutMs=*/10000);
+  // Start ESP-NOW mesh on the active WiFi interface(s)
+  EspNowMesh::begin();
   webServer.begin();
 
   buzz.begin();
@@ -200,9 +203,9 @@ void loop()
   // Update controls (merges TM1638 + BT) and fetch state
   Controls::update();
   const auto &cs = Controls::state();
-  if (motor1.getDutyCmd() > 0 || motor2.getDutyCmd())
-    Serial.printf(">m1DutyCmd:%d,m2DutyCmd:%d,m1A:%.2f,m2A:%.2f,\r\n",
-                  motor1.getDutyCmd(), motor2.getDutyCmd(), motor1.getCurrentmA() / 1000.0f, motor2.getCurrentmA() / 1000.0f);
+  // if (motor1.getDutyCmd() > 0 || motor2.getDutyCmd() > 0)
+  // Serial.printf(">m1DutyCmd:%d,m2DutyCmd:%d,m1A:%.2f,m2A:%.2f,\r\n",
+  //               motor1.getDutyCmd(), motor2.getDutyCmd(), motor1.getCurrentmA() / 1000.0f, motor2.getCurrentmA() / 1000.0f);
 
   uint8_t speedControlPt = cs.Fast ? FAST_PT : cs.Insane ? INSANE_PT
                                                          : SLOW_PT;

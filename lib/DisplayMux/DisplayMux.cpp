@@ -109,7 +109,7 @@ void DisplayMux::displayAndBroadCastTexts(uint8_t brightness, const char segText
   copy_cstr(DisplayMux::lcdLine1_, lcdLine1);
   copy_cstr(DisplayMux::lcdLine2_, lcdLine2);
 
-  broadcastIfDue();
+  broadcastIfDue(); // only broadcasts if enabled (on master) and if due
 }
 
 // Broadcast attempt of current display state respecting MIN_RESEND_INTERVAL_MS throttle and RESEND_SAME_MS
@@ -168,9 +168,9 @@ void DisplayMux::broadcastIfDue()
   }
   else if (hasAnyChanged)
   {
-    Serial.printf("DisplayMux: broadcast seq=%lu brightness=%u segText='%s' lcdLine1='%s' lcdLine2='%s\n",
-                  (unsigned long)msg.seq, (unsigned)msg.brightness,
-                  msg.segText, msg.lcdLine1, msg.lcdLine2);
+    // Serial.printf("DisplayMux: broadcast seq=%lu brightness=%u segText='%s' lcdLine1='%s' lcdLine2='%s\n",
+    //               (unsigned long)msg.seq, (unsigned)msg.brightness,
+    //               msg.segText, msg.lcdLine1, msg.lcdLine2);
   }
 }
 

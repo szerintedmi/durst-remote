@@ -50,7 +50,6 @@ public:
             _connectToWifi(staTimeoutMs);
         }
 
-        beginEspNowMesh();
         _attachRoutes(); // adds /wifi, /wifi/save, /wifi/reset
     }
 
@@ -80,35 +79,7 @@ private:
         _pass = p;
     }
 
-    // Starts softAP and ESP-NOW mesh
-    bool beginEspNowMesh()
-    {
-        // Force AP to the chosen channel at boot
-        uint8_t channel = WiFi.channel();
-        if (!WiFi.softAP(_apSsid, _apPass, channel, /*hidden=*/0, /*max conn=*/3))
-        {
-            Serial.println("WifiPortal: Error initializing softAP for Mesh");
-            return false;
-        }
-
-        if (esp_now_init() != ESP_OK)
-        {
-            Serial.println("WifiPortal: Error initializing ESP-NOW");
-            return false;
-        }
-
-        // Add broadcast peer (keeps API happy across core versions)
-        esp_now_peer_info_t peer{};
-        memcpy(peer.peer_addr, DEFAULT_BROADCAST_MAC, 6);
-        peer.ifidx = WIFI_IF_AP;
-        peer.channel = 0; // transmit on own current primary channel. Peers still need to detect change and jump channel
-        peer.encrypt = false;
-        esp_now_add_peer(&peer);
-
-        Serial.printf("WifiPortal: Mesh SoftAP started. SSID:%s Ch:%u IP:%s\n",
-                      _apSsid, channel, WiFi.softAPIP().toString().c_str());
-        return true;
-    }
+    // ESP-NOW mesh setup moved to dedicated lib (EspNowMesh).
 
     void _startSetupAP()
     {

@@ -13,5 +13,10 @@
     }, // MS C/C++ extension
     "python.analysis.exclude": [
         "**/.history/**"
-    ] // Pylance
+    ],
+    "files.associations": {
+        "*.js": "javascript",
+        "ctime": "cpp",
+        "iomanip": "cpp"
+    } // Pylance
 }

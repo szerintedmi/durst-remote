@@ -3,12 +3,26 @@
 #include "Controls.h"
 #include "GamePad.h"
 #include "TM1638plusWrapper.h"
+#include "DurstProto.h"
+#include <atomic>
 
 namespace
 {
+  // Concurrency note:
+  // ESP-NOW receive callback runs on a different task than loop().
+  // Use atomics for shared fields to avoid UB and torn multi-reads.
+  // Relaxed order is sufficient as we only need the latest value.
   ControlsState s_state{};
   ControlsState s_prevState{}; // snapshot from previous update
   TM1638plusWrapper *tmPanel_ = nullptr;
+
+  // Remote TM (slave->master) state + TTL
+  static std::atomic<uint8_t> s_remoteTmRaw{0};
+  static std::atomic<uint32_t> s_lastRemoteSeq{0};
+  static uint32_t s_lastProcessedSeq = 0; // accessed only from loop()
+  static std::atomic<uint32_t> s_remoteTmLastMs{0};
+  static std::atomic<uint32_t> s_radioDrops{0}; // incremented in RX callback
+  constexpr uint32_t REMOTE_TM_TTL_MS = 600; // > keepalive (RESEND_SAME_MS in TmButtonsBroadcaster)
 
   struct TMState
   {
@@ -22,6 +36,25 @@ namespace
     bool S7 = false;
     bool S8 = false;
   };
+
+  // Handle TM-state broadcast ESP-NOW messages from remote so Controls can merge remote button state
+  static void onTmStateBroadcast(const MsgTmStateV1 &msg)
+  {
+    // Track radio-level gaps (count only missing sequences between consecutive RX calls)
+    static uint32_t s_lastSeqRx = 0; // callback-local state
+    if (s_lastSeqRx != 0)
+    {
+      const uint32_t diff = msg.seq - s_lastSeqRx; // modulo arithmetic
+      if (diff > 1)
+        s_radioDrops.fetch_add(diff - 1, std::memory_order_relaxed);
+    }
+    s_lastSeqRx = msg.seq;
+
+    // Publish latest values for the main loop
+    s_remoteTmRaw.store(msg.tmRaw, std::memory_order_relaxed);
+    s_lastRemoteSeq.store(msg.seq, std::memory_order_relaxed);
+    s_remoteTmLastMs.store(millis(), std::memory_order_relaxed);
+  }
 
   static void fillDerivedAndConflicts(ControlsState &cs)
   {
@@ -41,9 +74,11 @@ namespace Controls
   {
     tmPanel_ = tmPanel;
     BtInput::begin();
+
+    DurstProto::setOnTmStateBroadcast(onTmStateBroadcast);
   }
 
-  static const TMState getTmState(const uint8_t rawButtons)
+  static const TMState calculateTmState(const uint8_t rawButtons)
   {
     TMState tms{};
     tms.raw = rawButtons;
@@ -60,13 +95,38 @@ namespace Controls
 
   void update()
   {
-    s_prevState = s_state; // Snapshot to enable edge detection after this update
+    s_prevState = s_state;                    // Snapshot to enable edge detection after this update
+    const uint32_t lastSeq = s_lastRemoteSeq.load(std::memory_order_relaxed); // snapshot once
+    if (lastSeq != 0)
+    {
+      // Compute modulo difference so wrap-around (0xFFFFFFFF -> 0) yields diff==1
+      const uint32_t diff = lastSeq - s_lastProcessedSeq;
+      if (diff > 1)
+      {
+        Serial.print("Controls: skipped since last update = ");
+        Serial.print(diff - 1);
+        Serial.print(" s_lastRemoteSeq="); Serial.print(lastSeq);
+        Serial.print(" s_lastProcessedSeq="); Serial.print(s_lastProcessedSeq);
+        Serial.print(" radio_drops_total="); Serial.println(s_radioDrops.load(std::memory_order_relaxed));
+      }
+    }
+    s_lastProcessedSeq = lastSeq;
 
     BtInput::update(); // Update BT state from bluepad32
 
-    TMState tmState = {};
+    // Local TM raw (if present)
+    uint8_t localRaw = 0;
     if (tmPanel_ != nullptr)
-      tmState = getTmState(tmPanel_->readButtons());
+      localRaw = tmPanel_->readButtons();
+
+    // Merge remote TM if recent
+    uint8_t effectiveRaw = localRaw;
+    const uint32_t now = millis();
+    const uint32_t remoteLastMs = s_remoteTmLastMs.load(std::memory_order_relaxed);
+    if (now - remoteLastMs <= REMOTE_TM_TTL_MS)
+      effectiveRaw |= s_remoteTmRaw.load(std::memory_order_relaxed);
+
+    TMState tmState = calculateTmState(effectiveRaw);
 
     const auto &gamePadsState = BtInput::state(); // Aggregate BT state (in case of multiple controllers)
 
@@ -84,7 +144,6 @@ namespace Controls
     s_state.decreaseTimer = tmState.S2 || gamePadsState.dpadDown;
 
     // Build merged buttons mask used for LEDs
-
     s_state.buttonsMask = tmState.raw;
 
     // Derived + conflicts

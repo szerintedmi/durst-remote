@@ -1,8 +1,8 @@
-// Minimal slave node: joins same WiFi/ESP-NOW mesh and prints display messages
+// Minimal slave node: joins same WiFi/ESP-NOW mesh and
+//   prints display messages received from master + broadcast tm buttons if tm1638 attaced
 #include <Arduino.h>
 #include <WiFi.h>
 #include <esp_wifi.h>
-#include <esp_now.h>
 #include <rgb_lcd.h>
 #include <esp_log.h>
 
@@ -18,6 +18,8 @@
 #include "DurstProto.h"
 #include "TM1638plusWrapper.h"
 #include "DisplayMux.h"
+#include "TmButtonsBroadcaster.h"
+#include "EspNowMesh.h"
 
 // TM1638 pins (same defaults as master)
 constexpr uint8_t TM1638_CLK_PIN = 32;
@@ -30,8 +32,10 @@ constexpr bool IS_TM1638_HIGH_FREQ = true;
 TM1638plusWrapper tm(TM1638_STB_PIN, TM1638_CLK_PIN, TM1638_DIO_PIN, IS_TM1638_HIGH_FREQ);
 rgb_lcd lcd;
 DisplayMux displays(&tm, &lcd); // not broadcasting (disbaled by default)
+TmBroadcast::Broadcaster tmBroadcaster(&tm);
 
 static uint32_t lastBroadcastedSeq = 0;
+static uint32_t lastDisplayedSeq = 0; // loop applies when differs from lastBroadcastedSeq
 static uint32_t lastBroadcastReceivedMs = 0;
 static bool isConnected = false;
 static uint32_t broadcastLostCount = 0;
@@ -78,8 +82,6 @@ static void onDisplayBroadcast(const MsgV1 &m)
                   lost_count, lastBroadcastedSeq, msg->seq, broadcastLostCount);
   }
 
-  displays.displayAndBroadCastTexts(msg->brightness, msg->segText, getDebugLine(), msg->lcdLine2);
-
   lastBroadcastedSeq = msg->seq;
   lastBroadcastedSegBrightness_ = msg->brightness;
   lastBroadcastReceivedMs = millis();
@@ -87,8 +89,6 @@ static void onDisplayBroadcast(const MsgV1 &m)
   memcpy(lastBroadcastedSegText_, msg->segText, sizeof(msg->segText));
   memcpy(lastBroadcastedLcdLine1_, msg->lcdLine1, sizeof(msg->lcdLine1));
   memcpy(lastBroadcastedLcdLine2_, msg->lcdLine2, sizeof(msg->lcdLine2));
-
-  displays.displayAndBroadCastTexts(msg->brightness, msg->segText, getDebugLine(), msg->lcdLine2);
 
   if (hasAnyChanged)
   {
@@ -100,7 +100,7 @@ static void onDisplayBroadcast(const MsgV1 &m)
 void onConnectionLost()
 {
   isConnected = false;
-  displays.displayAndBroadCastTexts(lastBroadcastedSegBrightness_, "conn.err ",
+  displays.displayAndBroadCastTexts(lastBroadcastedSegBrightness_, "Conn.Lost",
                                     getDebugLine(), "Connection lost ");
 
   Serial.println("mainSlave.onConnectionLost: Connection lost to master");
@@ -111,25 +111,27 @@ void setup()
   Serial.begin(115200);
 
   displays.begin();
+  tmBroadcaster.begin();
 
   Serial.println("[SLAVE] Joining mesh...");
   displays.displayAndBroadCastTexts(lastBroadcastedSegBrightness_, "BOOTING ",
                                     getDebugLine(), "Booting...   ");
 
   // Configure STA
-  WiFi.mode(WIFI_STA);
+  WiFi.mode(WIFI_MODE_STA);
   esp_wifi_set_ps(WIFI_PS_NONE);
   WiFi.setAutoReconnect(true);
   WiFi.persistent(false);
-  // WiFi.begin(MESH_SSID, MESH_PASS); don't need for mesh mode (using onyl softAP) and connecting to AP is slow to connect and would require to manage channel changes
+  // WiFi.begin(MESH_SSID, MESH_PASS); No need to connect for EspNow as using only master's softAP
+  //    Connecting to AP is slow and would require to manage channel changes
 
-  // Init ESP-NOW (will be ready regardless of STA state)
-  if (esp_now_init() == ESP_OK)
+  // Init ESP-NOW mesh for current WiFi mode
+  if (EspNowMesh::begin())
   {
     uint8_t pri = 0;
     wifi_second_chan_t sec = WIFI_SECOND_CHAN_NONE;
     esp_wifi_get_channel(&pri, &sec);
-    Serial.printf("[SLAVE] STA ESP NOW INIT SUCCESS. Wifi Channel: %d. esp channel: %d\n", WiFi.channel(), pri);
+    Serial.printf("[SLAVE] ESP-NOW INIT SUCCESS. Wifi Channel: %d. esp channel: %d\n", WiFi.channel(), pri);
     DurstProto::setOnDisplayBroadcast(&onDisplayBroadcast);
     displays.displayAndBroadCastTexts(lastBroadcastedSegBrightness_, "CONNECT ",
                                       getDebugLine(), "Connecting...   ");
@@ -147,5 +149,19 @@ void loop()
   if (millis() - lastBroadcastReceivedMs > 2000 && isConnected)
     onConnectionLost();
 
-  delay(300); // long delay is fine until we only check for lost connection in loop
+  // Apply latest display update (deferred from ESP-NOW callback)
+  if (lastDisplayedSeq != lastBroadcastedSeq)
+  {
+    // Use cached values; getDebugLine() builds line1 from updated counters
+    displays.displayAndBroadCastTexts(lastBroadcastedSegBrightness_,
+                                      lastBroadcastedSegText_,
+                                      getDebugLine(),
+                                      lastBroadcastedLcdLine2_);
+    lastDisplayedSeq = lastBroadcastedSeq;
+  }
+
+  // Update TM buttons broadcaster (immediate but throttled on change, keepalive otherwise)
+  tmBroadcaster.update();
+
+  delay(10);
 }

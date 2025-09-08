@@ -25,6 +25,7 @@ constexpr void copy_literal(char (&dst)[N], const char (&lit)[M])
 enum : uint8_t
 {
     CMD_DISPLAY_TEXT = 0x01, // payload uses `text[8]`
+    CMD_TM_STATE = 0x02,     // payload uses `tmRaw`
 };
 
 struct __attribute__((packed)) MsgV1
@@ -41,3 +42,14 @@ struct __attribute__((packed)) MsgV1
 };
 static_assert(sizeof(MsgV1) == 54, "MsgV1 must be 54 bytes");
 
+// Minimal TM buttons state broadcast (same header layout as MsgV1)
+struct __attribute__((packed)) MsgTmStateV1
+{
+    uint8_t magic = PROTO_MAGIC; // 0xA5 marker
+    uint8_t version = 1;         // protocol version (1)
+    uint8_t cmd;                 // CMD_TM_STATE
+    uint8_t flags;               // reserved/bitfield (0 for now)
+    uint32_t seq;                // rolling sequence number
+    uint8_t tmRaw;               // bitmask S1..S8 per TM1638plusWrapper
+};
+static_assert(sizeof(MsgTmStateV1) == 9, "MsgTmStateV1 must be 9 bytes");
