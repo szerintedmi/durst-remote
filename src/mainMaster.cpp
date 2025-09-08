@@ -41,7 +41,7 @@ uint8_t brightness = 0;
 TM1638plusWrapper tm(TM1638_STB_PIN, TM1638_CLK_PIN, TM1638_DIO_PIN, IS_TM1638_HIGH_FREQ);
 
 // Grove LCD Display , defaults to PIN 21 SDA and 22 SCL
-rgb_lcd lcd;
+rgb_lcd lcd; // default pins 21 and 22
 DisplayMux displays(&tm, &lcd);
 
 // Lamp SSR relay handled above
@@ -67,7 +67,7 @@ constexpr uint8_t M1_CH2 = 1;
 constexpr uint8_t M2_IN1 = 18;
 constexpr uint8_t M2_IN2 = 19;
 constexpr uint8_t M2_SLEEP = 0; // if hard-wired HIGH, set to 0
-constexpr uint8_t M2_FAULT = 22;
+constexpr uint8_t M2_FAULT = 27;
 constexpr uint8_t M2_CS = 34;
 constexpr uint8_t M2_CH1 = 2;
 constexpr uint8_t M2_CH2 = 3;
