@@ -100,7 +100,7 @@ static void onDisplayBroadcast(const MsgV1 &m)
 void onConnectionLost()
 {
   isConnected = false;
-  displays.displayAndBroadCastTexts(lastBroadcastedSegBrightness_, "conn.err ",
+  displays.displayAndBroadCastTexts(lastBroadcastedSegBrightness_, "Conn.LOSt",
                                     getDebugLine(), "Connection lost ");
 
   Serial.println("mainSlave.onConnectionLost: Connection lost to master");
