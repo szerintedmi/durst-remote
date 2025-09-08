@@ -42,22 +42,28 @@ Either display can be wired to the master module or used wirelessly via a slave 
 
 ## Controls
 
-TM1638 panel:
+TM1638 panel (controls only if TM1638 is connected to master):
 
-- `S1` Fast speed preset; `S1+S8` toggle lamp.
-- `S2` timer −; `S3` timer +.
-- `S4` M1 down; `S5` M1 up.
-- `S6` M2 down; `S7` M2 up.
-- `S8` start timer.
+- `S1` Fast speed (motors or timer adjust)
+- `S1+S8` toggle lamp (on/off)
+- `S2` timer −0.1s; `S3` timer +0.1s
+- `S1+S2` timer -1s; `S1+S3` timer +1s
+- `S4` M1 down; `S5` M1 up
+- `S6` M2 down; `S7` M2 up
+- `S8` start / cancel timer
 - Conflicts (e.g., up+down) coast + short beep.
 
 Bluetooth gamepad (Bluepad32):
 
-- Speed: `L2`/`R2` = Fast, `L1` = Insane.
-- M1: `Cross(×)` down, `Triangle(△)` up.
-- M2: `Square(□)` down, `Circle(○)` up.
-- Timer: D‑pad Up/Down adjust, Right start, Left toggle lamp.
-- Brightness cycle: `R1`.
+- `Cross(×)` / `Triangle(△)`: M1 (Head) up/down
+- `Square(□)`  /  `Circle(○)` : M2 (Lens) up/down
+- Fast motor Speed: `L2`/`R2`,  Insane `L1`
+- Timer adjust +/-0.1s: D‑pad Up/Down
+- Timer +/-1s: `L2`/`R2` + Dpad Up/Down
+- Timer +/-10s: `L1` + Dpad Up/Down
+- Start / cancel lamp with timer:  D-Pad Right
+- Toggle lamp: D-Pad Left
+- Adjust TM1638 Display Brightness: `R1`
 
 ## Display & Feedback
 

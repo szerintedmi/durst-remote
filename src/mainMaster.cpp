@@ -264,11 +264,20 @@ void loop()
   // Start timer on rising edge only (avoid restart every loop while pressed)
   if (Controls::rising(&ControlsState::StartTimer))
   {
-    prefs.putULong("duration", timer.getDurationMs()); // save last used duration for next boot
-    timer.start(onTimerDone);
-    lamp.on();
-    Serial.printf("Timer started timer.remainingMs()=%d timer.isRunning()=%d timer.getDurationMs()=%d\n",
-                  (int)timer.remainingMs(), (int)timer.isRunning(), (int)timer.getDurationMs());
+    if (lamp.isOn() && timer.isRunning())
+    {
+      lamp.off();
+      timer.stop();
+      Serial.println("mainMaster: Timer cancel (timer was running and lamp was on)");
+    }
+    else
+    {
+      prefs.putULong("duration", timer.getDurationMs()); // save last used duration for next boot
+      timer.start(onTimerDone);
+      lamp.on();
+      Serial.printf("mainMaster: Timer started timer.remainingMs()=%d timer.isRunning()=%d timer.getDurationMs()=%d\n",
+                    (int)timer.remainingMs(), (int)timer.isRunning(), (int)timer.getDurationMs());
+    }
   }
 
   if (Controls::rising(&ControlsState::toggleLamp))
@@ -277,41 +286,46 @@ void loop()
     Serial.printf("toggleLamp: lamp is now %s\n", lamp.isOn() ? "ON" : "OFF");
   }
 
-  uint16_t timerStep = 100;
-  if (cs.Fast || cs.Insane)
-    timerStep = 1000;
-
-  // Apply timer +/- no faster than every repeatMs while button is held
-  static uint32_t nextTimerAdjustMs = 0; // 0 means immediate on next press
-  const uint16_t repeatMs = 200;         // adjust rate while holding (ms)
-  const uint32_t nowMs = millis();
-  const bool anyAdjust = cs.decreaseTimer || cs.increaseTimer;
-
-  if (anyAdjust && (nowMs >= nextTimerAdjustMs))
+  if (!timer.isRunning()) // ignore timer adjusment while it's running
   {
-    uint32_t newDuration = timer.getDurationMs();
+    uint16_t timerStep = 100;
+    if (cs.Fast)
+      timerStep = 1000;
+    else if (cs.Insane)
+      timerStep = 10000;
 
-    if (cs.decreaseTimer)
+    // Apply timer +/- no faster than every repeatMs while button is held
+    static uint32_t nextTimerAdjustMs = 0; // 0 means immediate on next press
+    const uint16_t repeatMs = 200;         // adjust rate while holding (ms)
+    const uint32_t nowMs = millis();
+    const bool anyTimerAdjust = cs.decreaseTimer || cs.increaseTimer;
+
+    if (anyTimerAdjust && (nowMs >= nextTimerAdjustMs))
     {
-      if (newDuration <= timerStep)
-        newDuration = 100ULL;
-      else
-        newDuration -= timerStep;
+      uint32_t newDuration = timer.getDurationMs();
+
+      if (cs.decreaseTimer)
+      {
+        if (newDuration <= timerStep)
+          newDuration = 100ULL;
+        else
+          newDuration -= timerStep;
+      }
+      else if (cs.increaseTimer)
+      {
+        if (newDuration + timerStep > 9999000ULL)
+          newDuration = 9999000ULL;
+        else
+          newDuration += timerStep;
+      }
+      Serial.printf("Adjusting timer. Current: %lu ms  New: %lu ms\n", timer.getDurationMs(), newDuration);
+      timer.setDurationMs(newDuration);
+      nextTimerAdjustMs = nowMs + repeatMs; // schedule next repeat
     }
-    else if (cs.increaseTimer)
+    else if (!anyTimerAdjust)
     {
-      if (newDuration + timerStep > 9999000ULL)
-        newDuration = 9999000ULL;
-      else
-        newDuration += timerStep;
+      nextTimerAdjustMs = 0; // reset so next press acts immediately
     }
-    Serial.printf("Adjusting timer. Current: %lu ms  New: %lu ms\n", timer.getDurationMs(), newDuration);
-    timer.setDurationMs(newDuration);
-    nextTimerAdjustMs = nowMs + repeatMs; // schedule next repeat
-  }
-  else if (!anyAdjust)
-  {
-    nextTimerAdjustMs = 0; // reset so next press acts immediately
   }
 
   updateDisplay(brightness, lamp.isOn(), motor1, motor2, timer, cs.anyDirectionConflict, debouncedFaultM1, debouncedFaultM2);
