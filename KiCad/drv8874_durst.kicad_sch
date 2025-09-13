@@ -6709,6 +6709,80 @@
 		)
 	)
 	(symbol
+		(lib_id "petro:SSR_Relay")
+		(at 77.47 161.29 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "8ceea7be-84be-402c-8291-dd6d2e990fec")
+		(property "Reference" "U2"
+			(at 79.375 157.48 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "SSR AD Relay"
+			(at 79.375 160.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 77.47 161.29 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 77.47 161.29 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 77.47 161.29 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "4"
+			(uuid "fda69cd2-14bf-44b0-b940-f461b6686489")
+		)
+		(pin "2"
+			(uuid "0a0a2b5f-25ce-4b2f-b926-36b12018256e")
+		)
+		(pin "1"
+			(uuid "bd1e0963-36ac-4dfa-8b25-404213acc895")
+		)
+		(pin "3"
+			(uuid "bb88544c-3230-46a5-aa86-2a66ce1f6476")
+		)
+		(instances
+			(project ""
+				(path "/824d854a-3366-45dc-a9ec-858fab4cff49"
+					(reference "U2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Switch:SW_Push_Open")
 		(at 149.86 76.2 0)
 		(unit 1)
